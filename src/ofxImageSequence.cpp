@@ -241,6 +241,31 @@ bool ofxImageSequence::preloadAllFilenames()
 	return true;
 }
 
+//-------------------------------------------------------------------------
+void ofxImageSequence::loadEspecificFileListSequence(vector<string> fileList){
+	
+	unloadSequence();
+
+	int auxNumFiles = fileList.size();
+
+	filenames.clear();
+	
+	for(int i = 0; i < auxNumFiles; i++) {
+        filenames.push_back(fileList[i]);
+		sequence.push_back(ofPixels());
+		loadFailed.push_back(false);
+
+		//Load the image without threads
+		curLoadFrame = i;
+		if(!ofLoadImage(sequence[i], filenames[i])){
+			loadFailed[i] = true;
+			ofLogError("ofxImageSequence::loadFrame") << "My Image failed to load: " << filenames[i];		
+		}
+    }
+
+
+}
+
 //set to limit the number of frames. negative means no limit
 void ofxImageSequence::setMaxFrames(int newMaxFrames)
 {

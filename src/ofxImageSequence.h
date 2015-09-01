@@ -55,6 +55,9 @@ class ofxImageSequence : public ofBaseHasTexture {
 	ofxImageSequence();
 	~ofxImageSequence();
 	
+	//Added specific sequences list file names with folder included
+	void loadEspecificFileListSequence(vector<string> fileList);
+
 	//sets an extension, like png or jpg
 	void setExtension(string prefix);
 	void setMaxFrames(int maxFrames); //set to limit the number of frames. 0 or less means no limit
