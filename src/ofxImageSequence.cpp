@@ -1,45 +1,3 @@
-/**
- *  ofxImageSequence.cpp
- *
- * Created by James George, http://www.jamesgeorge.org
- * in collaboration with FlightPhase http://www.flightphase.com
- *		- Updated for 0.8.4 by James George on 12/10/2014 for Specular (http://specular.cc) (how time flies!) 
- *
- * Permission is hereby granted, free of charge, to any person
- * obtaining a copy of this software and associated documentation
- * files (the "Software"), to deal in the Software without
- * restriction, including without limitation the rights to use,
- * copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following
- * conditions:
- *
- * The above copyright notice and this permission notice shall be
- * included in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
- * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
- * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
- * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
- * OTHER DEALINGS IN THE SOFTWARE.
- *
- * ----------------------
- *
- *  ofxImageSequence is a class for easily loading a series of image files
- *  and accessing them like you would frames of a movie.
- *  
- *  This class loads only textures to the graphics card and does not store pixel data in memory. This helps with
- *  fast, random access drawing of seuqences
- *  
- *  Why would you use this instead of a movie file? A few reasons,
- *  If you want truly random frame access with no lag on large images, ofxImageSequence allows it
- *  If you need a movie with alpha channel the only readily available codec is Animation (PNG) which is slow at large resolutions, so this class can help with that
- *  If you want to easily access frames based on percents this class makes that easy
- *  
- */
 
 #include "ofxImageSequence.h"
 
@@ -106,6 +64,9 @@ class ofxImageSequenceLoader : public ofThread
 	}
 
 };
+
+
+
 
 ofxImageSequence::ofxImageSequence()
 {
@@ -242,30 +203,51 @@ bool ofxImageSequence::preloadAllFilenames()
 }
 
 //-------------------------------------------------------------------------
-void ofxImageSequence::loadEspecificFileListSequence(vector<string> fileList){
+void ofxImageSequence::loadEspecificFileListSequence(vector<string> fileList, int _frameRate){
 	
 	unloadSequence();
-
+	
 	int auxNumFiles = fileList.size();
-
+	if(auxNumFiles <= 0)return false;
+	
 	filenames.clear();
 	
 	for(int i = 0; i < auxNumFiles; i++) {
-        filenames.push_back(fileList[i]);
+		filenames.push_back(fileList[i]);
 		sequence.push_back(ofPixels());
 		loadFailed.push_back(false);
-
+		
 		//Load the image without threads
 		curLoadFrame = i;
 		if(!ofLoadImage(sequence[i], filenames[i])){
 			loadFailed[i] = true;
-			ofLogError("ofxImageSequence::loadFrame") << "My Image failed to load: " << filenames[i];		
+			ofLogError("ofxImageSequence::loadFrame") << "My Image failed to load: " << filenames[i];
 		}
-    }
-
+	}
+	
+	loaded = true;
+	
+	lastFrameLoaded = -1;
+	loadFrame(0);
+	
+	width  = sequence[0].getWidth();
+	height = sequence[0].getHeight();
+	
+	frameRate = _frameRate;
 
 }
 
+//-------------------------------------------------------------------------
+void ofxImageSequence::ofxImageSequence::drawCoverFlow(int deltaXImgs, int space, int posYCoverFlow, float scaleX, float scaleY){
+	
+	for (int i = 0; i < sequence.size(); i++){
+		ofTexture myText;
+		myText.loadData(sequence[i]);
+		myText.draw((i*(sequence[i].getWidth()+space)+deltaXImgs), posYCoverFlow, myText.getWidth()*scaleX, myText.getWidth()*scaleY );
+	}
+}
+
+//-------------------------------------------------------------------------
 //set to limit the number of frames. negative means no limit
 void ofxImageSequence::setMaxFrames(int newMaxFrames)
 {

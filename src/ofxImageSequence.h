@@ -56,7 +56,8 @@ class ofxImageSequence : public ofBaseHasTexture {
 	~ofxImageSequence();
 	
 	//Added specific sequences list file names with folder included
-	void loadEspecificFileListSequence(vector<string> fileList);
+	void loadEspecificFileListSequence(vector<string> fileList, int _frameRate);
+	void drawCoverFlow(int deltaXImgs, int space, int posYCoverFlow, float scaleX, float scaleY);
 
 	//sets an extension, like png or jpg
 	void setExtension(string prefix);
