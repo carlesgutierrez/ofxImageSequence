@@ -1,10 +1,52 @@
+/**
+ *  ofxImageSequence.cpp
+ *
+ * Created by James George, http://www.jamesgeorge.org
+ * in collaboration with FlightPhase http://www.flightphase.com
+ *		- Updated for 0.8.4 by James George on 12/10/2014 for Specular (http://specular.cc) (how time flies!)
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * ----------------------
+ *
+ *  ofxImageSequence is a class for easily loading a series of image files
+ *  and accessing them like you would frames of a movie.
+ *
+ *  This class loads only textures to the graphics card and does not store pixel data in memory. This helps with
+ *  fast, random access drawing of seuqences
+ *
+ *  Why would you use this instead of a movie file? A few reasons,
+ *  If you want truly random frame access with no lag on large images, ofxImageSequence allows it
+ *  If you need a movie with alpha channel the only readily available codec is Animation (PNG) which is slow at large resolutions, so this class can help with that
+ *  If you want to easily access frames based on percents this class makes that easy
+ *
+ */
 
 #include "ofxImageSequence.h"
 
 class ofxImageSequenceLoader : public ofThread
 {
-  public:
-
+public:
+	
 	bool loading;
 	bool cancelLoading;
 	ofxImageSequence& sequenceRef;
@@ -18,55 +60,52 @@ class ofxImageSequenceLoader : public ofThread
 	}
 	
 	~ofxImageSequenceLoader(){
-        cancel();
-    }
+		cancel();
+	}
 	
-    void cancel(){
+	void cancel(){
 		if(loading){
 			ofRemoveListener(ofEvents().update, this, &ofxImageSequenceLoader::updateThreadedLoad);
-            lock();
+			lock();
 			cancelLoading = true;
-            unlock();
-            loading = false;
+			unlock();
+			loading = false;
 			waitForThread(true);
 		}
-    }
-    
-	void threadedFunction(){
+	}
 	
+	void threadedFunction(){
+		
 		ofAddListener(ofEvents().update, this, &ofxImageSequenceLoader::updateThreadedLoad);
-
+		
 		if(!sequenceRef.preloadAllFilenames()){
 			loading = false;
 			return;
 		}
-
+		
 		if(cancelLoading){
 			loading = false;
 			cancelLoading = false;
 			return;
 		}
-	
+		
 		sequenceRef.preloadAllFrames();
-	
+		
 		loading = false;
 	}
-
+	
 	void updateThreadedLoad(ofEventArgs& args){
 		if(loading){
 			return;
 		}
 		ofRemoveListener(ofEvents().update, this, &ofxImageSequenceLoader::updateThreadedLoad);
-
+		
 		if(sequenceRef.getTotalFrames() > 0){
 			sequenceRef.completeLoading();
 		}
 	}
-
+	
 };
-
-
-
 
 ofxImageSequence::ofxImageSequence()
 {
@@ -93,7 +132,7 @@ bool ofxImageSequence::loadSequence(string prefix, string filetype,  int startDi
 bool ofxImageSequence::loadSequence(string prefix, string filetype,  int startDigit, int endDigit, int numDigits)
 {
 	unloadSequence();
-
+	
 	char imagename[1024];
 	stringstream format;
 	int numFiles = endDigit - startDigit+1;
@@ -101,11 +140,11 @@ bool ofxImageSequence::loadSequence(string prefix, string filetype,  int startDi
 		ofLogError("ofxImageSequence::loadSequence") << "No image files found.";
 		return false;
 	}
-
+	
 	if(numDigits != 0){
 		format <<prefix<<"%0"<<numDigits<<"d."<<filetype;
 	} else{
-		format <<prefix<<"%d."<<filetype; 
+		format <<prefix<<"%d."<<filetype;
 	}
 	
 	for(int i = startDigit; i <= endDigit; i++){
@@ -128,43 +167,43 @@ bool ofxImageSequence::loadSequence(string prefix, string filetype,  int startDi
 bool ofxImageSequence::loadSequence(string _folder)
 {
 	unloadSequence();
-
+	
 	folderToLoad = _folder;
-
+	
 	if(useThread){
 		threadLoader = new ofxImageSequenceLoader(this);
 		return true;
 	}
-
+	
 	if(preloadAllFilenames()){
 		completeLoading();
 		return true;
 	}
 	
 	return false;
-
+	
 }
 
 void ofxImageSequence::completeLoading()
 {
-
+	
 	if(sequence.size() == 0){
 		ofLogError("ofxImageSequence::completeLoading") << "load failed with empty image sequence";
 		return;
 	}
-
-	loaded = true;	
+	
+	loaded = true;
 	lastFrameLoaded = -1;
 	loadFrame(0);
 	
 	width  = sequence[0].getWidth();
 	height = sequence[0].getHeight();
-
+	
 }
 
 bool ofxImageSequence::preloadAllFilenames()
 {
-    ofDirectory dir;
+	ofDirectory dir;
 	if(extension != ""){
 		dir.allowExt(extension);
 	}
@@ -173,37 +212,71 @@ bool ofxImageSequence::preloadAllFilenames()
 		ofLogError("ofxImageSequence::loadSequence") << "Could not find folder " << folderToLoad;
 		return false;
 	}
-
+	
 	int numFiles;
 	if(maxFrames > 0){
 		numFiles = MIN(dir.listDir(folderToLoad), maxFrames);
 	}
-	else{	
+	else{
 		numFiles = dir.listDir(folderToLoad);
 	}
-
-    if(numFiles == 0) {
+	
+	if(numFiles == 0) {
 		ofLogError("ofxImageSequence::loadSequence") << "No image files found in " << folderToLoad;
 		return false;
 	}
-
-    // read the directory for the images
-	#ifdef TARGET_LINUX
+	
+	// read the directory for the images
+#ifdef TARGET_LINUX
 	dir.sort();
-	#endif
-
-
+#endif
+	
+	
 	for(int i = 0; i < numFiles; i++) {
-
-        filenames.push_back(dir.getPath(i));
+		
+		filenames.push_back(dir.getPath(i));
 		sequence.push_back(ofPixels());
 		loadFailed.push_back(false);
-    }
+	}
 	return true;
 }
 
+/*
+ //WIP functions
+ bool ofxImageSequence::loadSelectedSequence(string folder, string filetype,  int startDigit, int endDigit)
+ {
+	unloadSequence();
+	char imagename[1024];
+	stringstream format;
+	int numFiles = endDigit - startDigit+1;
+	if(numFiles <= 0 ){
+ ofLogError("ofxImageSequence::loadSequence") << "No image files found.";
+ return false;
+	}
+	for(int i = startDigit; i <= endDigit; i++){
+ sprintf(imagename, format.str().c_str(), i);
+ filenames.push_back(imagename);
+ sequence.push_back(ofPixels());
+ loadFailed.push_back(false);
+	}
+	
+	loaded = true;
+	
+	lastFrameLoaded = -1;
+	loadFrame(0);
+	
+	width  = sequence[0].getWidth();
+	height = sequence[0].getHeight();
+	return true;
+ }*/
+
 //-------------------------------------------------------------------------
-void ofxImageSequence::loadEspecificFileListSequence(vector<string> fileList, int _frameRate){
+string ofxImageSequence::getFolderLoaded(){
+	return folderToLoad;
+}
+
+//-------------------------------------------------------------------------
+bool ofxImageSequence::loadEspecificFileListSequence(vector<string> fileList, int _frameRate){
 	
 	unloadSequence();
 	
@@ -234,20 +307,9 @@ void ofxImageSequence::loadEspecificFileListSequence(vector<string> fileList, in
 	height = sequence[0].getHeight();
 	
 	frameRate = _frameRate;
-
-}
-
-//-------------------------------------------------------------------------
-void ofxImageSequence::ofxImageSequence::drawCoverFlow(int deltaXImgs, int space, int posYCoverFlow, float scaleX, float scaleY){
 	
-	for (int i = 0; i < sequence.size(); i++){
-		ofTexture myText;
-		myText.loadData(sequence[i]);
-		myText.draw((i*(sequence[i].getWidth()+space)+deltaXImgs), posYCoverFlow, myText.getWidth()*scaleX, myText.getWidth()*scaleY );
-	}
 }
 
-//-------------------------------------------------------------------------
 //set to limit the number of frames. negative means no limit
 void ofxImageSequence::setMaxFrames(int newMaxFrames)
 {
@@ -263,7 +325,7 @@ void ofxImageSequence::setExtension(string ext)
 }
 
 void ofxImageSequence::enableThreadedLoad(bool enable){
-
+	
 	if(loaded){
 		ofLogError("ofxImageSequence::enableThreadedLoad") << "Need to enable threaded loading before calling load";
 	}
@@ -273,8 +335,8 @@ void ofxImageSequence::enableThreadedLoad(bool enable){
 void ofxImageSequence::cancelLoad()
 {
 	if(useThread && threadLoader != NULL){
-        threadLoader->cancel();
-        
+		threadLoader->cancel();
+		
 		delete threadLoader;
 		threadLoader = NULL;
 	}
@@ -300,19 +362,19 @@ void ofxImageSequence::preloadAllFrames()
 			if(threadLoader == NULL){
 				return;
 			}
-            threadLoader->lock();
-            bool shouldExit = threadLoader->cancelLoading;
-            threadLoader->unlock();
-            if(shouldExit){
-                return;
-            }
-
+			threadLoader->lock();
+			bool shouldExit = threadLoader->cancelLoading;
+			threadLoader->unlock();
+			if(shouldExit){
+				return;
+			}
+			
 			ofSleepMillis(15);
 		}
 		curLoadFrame = i;
 		if(!ofLoadImage(sequence[i], filenames[i])){
 			loadFailed[i] = true;
-			ofLogError("ofxImageSequence::loadFrame") << "Image failed to load: " << filenames[i];		
+			ofLogError("ofxImageSequence::loadFrame") << "Image failed to load: " << filenames[i];
 		}
 	}
 }
@@ -332,27 +394,27 @@ void ofxImageSequence::loadFrame(int imageIndex)
 	if(lastFrameLoaded == imageIndex){
 		return;
 	}
-
+	
 	if(imageIndex < 0 || imageIndex >= sequence.size()){
 		ofLogError("ofxImageSequence::loadFrame") << "Calling a frame out of bounds: " << imageIndex;
 		return;
 	}
-
+	
 	if(!sequence[imageIndex].isAllocated() && !loadFailed[imageIndex]){
 		if(!ofLoadImage(sequence[imageIndex], filenames[imageIndex])){
 			loadFailed[imageIndex] = true;
 			ofLogError("ofxImageSequence::loadFrame") << "Image failed to load: " << filenames[imageIndex];
 		}
 	}
-
+	
 	if(loadFailed[imageIndex]){
 		return;
 	}
-
+	
 	texture.loadData(sequence[imageIndex]);
-
+	
 	lastFrameLoaded = imageIndex;
-
+	
 }
 
 float ofxImageSequence::getPercentAtFrameIndex(int index)
@@ -376,23 +438,24 @@ void ofxImageSequence::unloadSequence()
 		delete threadLoader;
 		threadLoader = NULL;
 	}
-
+	
 	sequence.clear();
 	filenames.clear();
 	loadFailed.clear();
-
+	
 	loaded = false;
 	width = 0;
 	height = 0;
 	curLoadFrame = 0;
 	lastFrameLoaded = -1;
-	currentFrame = 0;	
-
+	currentFrame = 0;
+	
 }
 
 void ofxImageSequence::setFrameRate(float rate)
 {
 	frameRate = rate;
+	cout << "NEW frameRate aplied and no evinces in the until is loaded again..." << endl;
 }
 
 string ofxImageSequence::getFilePath(int index){
@@ -405,8 +468,8 @@ string ofxImageSequence::getFilePath(int index){
 
 int ofxImageSequence::getFrameIndexAtPercent(float percent)
 {
-    if (percent < 0.0 || percent > 1.0) percent -= floor(percent);
-
+	if (percent < 0.0 || percent > 1.0) percent -= floor(percent);
+	
 	return MIN((int)(percent*sequence.size()), sequence.size()-1);
 }
 
@@ -460,7 +523,7 @@ void ofxImageSequence::setFrame(int index)
 		ofLogError("ofxImageSequence::setFrame") << "Calling getFrame on unitialized image sequence.";
 		return;
 	}
-
+	
 	if(index < 0){
 		ofLogError("ofxImageSequence::setFrame") << "Asking for negative index.";
 		return;
@@ -476,12 +539,12 @@ void ofxImageSequence::setFrameForTime(float time)
 {
 	float totalTime = sequence.size() / frameRate;
 	float percent = time / totalTime;
-	return setFrameAtPercent(percent);	
+	return setFrameAtPercent(percent);
 }
 
 void ofxImageSequence::setFrameAtPercent(float percent)
 {
-	setFrame(getFrameIndexAtPercent(percent));	
+	setFrame(getFrameIndexAtPercent(percent));
 }
 
 ofTexture& ofxImageSequence::getTexture()
@@ -505,9 +568,25 @@ int ofxImageSequence::getTotalFrames()
 }
 
 bool ofxImageSequence::isLoaded(){						//returns true if the sequence has been loaded
-    return loaded;
+	return loaded;
 }
 
 bool ofxImageSequence::isLoading(){
 	return threadLoader != NULL && threadLoader->loading;
+}
+
+
+//-----------------------------------------------------------------------
+void ofxImageSequence::drawCoverFlow(int initX, int deltaXImgs, int posYCoverFlow, int space,  float scaleX, float scaleY){
+	
+	for (int i = 0; i < sequence.size(); i++){
+		ofTexture * myText;
+		myText = getFrame(i);//This Ensure that all my images return filled texture
+		
+		int posx = (i*(width+space)+deltaXImgs)+initX;
+		int posy = posYCoverFlow;
+		
+		myText->draw(posx, posy, myText->getWidth()*scaleX, myText->getHeight()*scaleY );
+		cout << "i=" << i << endl;
+	}
 }
